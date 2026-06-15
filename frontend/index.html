@@ -220,14 +220,9 @@
 </div>
 
 <script>
-const LAT = 31.69;
-const LON = 34.52;
-const IDEAL_MAX  = 0.5;   // 0–0.5m   → ideal
-const SAILING_MAX = 1.2;  // 0.5–1.2m → fine for sailing   >1.2m → not fun
-const WIND_MIN = 6;
-const WIND_MAX = 20;
-const LOC_NAME = 'Ashkelon';
-const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const IDEAL_MAX   = 0.5;
+const SAILING_MAX = 1.2;
+const LOC_NAME    = 'Ashkelon';
 
 let chart;
 
@@ -235,34 +230,17 @@ let chart;
 let days = [];
 
 async function fetchData() {
-  const [wR, windR] = await Promise.all([
-    fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&hourly=wave_height&forecast_days=7&timezone=auto`),
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=wind_speed_10m&wind_speed_unit=kn&forecast_days=7&timezone=auto`)
-  ]);
-  const wJ = await wR.json();
-  const windJ = await windR.json();
-
-  const waveH = wJ.hourly.wave_height;
-  const windH = windJ.hourly.wind_speed_10m;
-  const times = wJ.hourly.time;
-
-  const result = [];
-  for (let d = 0; d < 7; d++) {
-    const amIdx = d * 24 + 8;
-    const pmIdx = d * 24 + 14;
-    const date = new Date(times[amIdx]);
-    const amWave = waveH[amIdx] ?? 0;
-    const pmWave = waveH[pmIdx] ?? 0;
-    result.push({
-      label: DAY_NAMES[date.getDay()],
-      amWave,
-      amWind: windH[amIdx] ?? 0,
-      pmWave,
-      pmWind: windH[pmIdx] ?? 0,
-      avgWave: (amWave + pmWave) / 2
-    });
-  }
-  return result;
+  const res = await fetch('/api/forecast');
+  if (!res.ok) throw new Error(`Forecast fetch failed: ${res.status}`);
+  const { days } = await res.json();
+  return days.map(d => ({
+    label:    d.label,
+    amWave:   d.am_wave,
+    amWind:   d.am_wind,
+    pmWave:   d.pm_wave,
+    pmWind:   d.pm_wind,
+    avgWave:  d.avg_wave,
+  }));
 }
 
 function condition(wave) {
