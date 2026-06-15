@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f0;
+      padding: 32px 28px;
+      max-width: 860px;
+      margin: 0 auto;
+      color: #1a1a2e;
+    }
+
+    @media (max-width: 540px) {
+      body { padding: 16px 14px; }
+    }
+
+    /* ── Top card ── */
+    .top-card {
+      background: linear-gradient(160deg, #d6ede0 0%, #c2e4cc 100%);
+      border-radius: 24px;
+      padding: 28px 36px 24px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 540px) {
+      .top-card { padding: 20px 18px 18px; border-radius: 18px; margin-bottom: 28px; }
+    }
+
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .card-left { flex: 1; min-width: 140px; }
+    .location-name { font-size: 26px; font-weight: 700; }
+    .datetime { font-size: 13px; color: #555; margin-top: 4px; }
+
+    .calm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    .calm-dot { width: 9px; height: 9px; border-radius: 50%; background: #4caf50; }
+
+    /* ── "Now" metrics (default) ── */
+    #view-now {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+    }
+
+    /* ── "Day" metrics (on dot click) ── */
+    #view-day {
+      display: none;
+      gap: 0;
+      align-items: center;
+    }
+
+    .period-block { text-align: center; padding: 0 24px; }
+    .period-block:first-child { padding-left: 0; }
+
+    .period-divider {
+      font-size: 32px;
+      font-weight: 300;
+      color: #aaa;
+      align-self: center;
+      padding: 0 4px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .big-wave {
+      font-size: 64px;
+      font-weight: 800;
+      color: #1a9e8f;
+      line-height: 1;
+    }
+    .big-wave sup, .big-wind sup { font-size: 20px; font-weight: 500; vertical-align: baseline; }
+
+    .big-wind {
+      font-size: 64px;
+      font-weight: 800;
+      color: #1a1a2e;
+      line-height: 1;
+    }
+
+    /* period values stacked: wave on top, wind below */
+    .period-wave {
+      font-size: 46px;
+      font-weight: 800;
+      color: #1a9e8f;
+      line-height: 1;
+    }
+    .period-wave sup { font-size: 16px; font-weight: 500; vertical-align: baseline; }
+
+    .period-wind {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-top: 6px;
+    }
+    .period-wind sup { font-size: 13px; font-weight: 500; }
+
+    @media (max-width: 540px) {
+      .big-wave, .big-wind { font-size: 48px; }
+      .period-wave { font-size: 36px; }
+      .period-wind { font-size: 20px; }
+      #view-now { gap: 20px; }
+      .period-block { padding: 0 14px; }
+    }
+
+    /* ── Message box ── */
+    .msg-box {
+      background: white;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-top: 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .msg-icon {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: #4caf50;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      font-size: 15px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .msg-text { font-size: 14px; color: #333; line-height: 1.45; }
+
+    /* ── Chart ── */
+    .chart-header {
+      margin-bottom: 16px;
+    }
+    .chart-header h2 { font-size: 20px; font-weight: 600; }
+
+    .chart-wrap { position: relative; height: 280px; cursor: pointer; }
+
+    @media (max-width: 540px) {
+      .chart-wrap { height: 210px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-card">
+  <div class="card-row">
+    <div class="card-left">
+      <div class="location-name" id="locName">…</div>
+      <div class="datetime" id="dtLine">Loading…</div>
+      <div class="calm-badge">
+        <span class="calm-dot" id="condDot"></span>
+        <span id="condLabel">—</span>
+      </div>
+    </div>
+
+    <!-- default: current conditions -->
+    <div id="view-now">
+      <div>
+        <div class="metric-label">Wave Height</div>
+        <div class="big-wave" id="nowWave">—<sup>m</sup></div>
+      </div>
+      <div>
+        <div class="metric-label">Wind</div>
+        <div class="big-wind" id="nowWind">—<sup>kn</sup></div>
+      </div>
+    </div>
+
+    <!-- day selected: AM / PM split -->
+    <div id="view-day">
+      <div class="period-block">
+        <div class="metric-label">Morning</div>
+        <div class="period-wave" id="amWave">—<sup>m</sup></div>
+        <div class="period-wind" id="amWind">—<sup>kn</sup></div>
+      </div>
+      <div class="period-divider">/</div>
+      <div class="period-block">
+        <div class="metric-label">Afternoon</div>
+        <div class="period-wave" id="pmWave">—<sup>m</sup></div>
+        <div class="period-wind" id="pmWind">—<sup>kn</sup></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="msg-box">
+    <div class="msg-icon" id="msgIcon">✓</div>
+    <div class="msg-text" id="msgText">Fetching conditions…</div>
+  </div>
+</div>
+
+<div>
+  <div class="chart-header">
+    <h2>The next 7 days</h2>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="waveChart"></canvas>
+  </div>
+</div>
+
+<script>
+const LAT = 31.69;
+const LON = 34.52;
+const IDEAL_MAX  = 0.5;   // 0–0.5m   → ideal
+const SAILING_MAX = 1.2;  // 0.5–1.2m → fine for sailing   >1.2m → not fun
+const WIND_MIN = 6;
+const WIND_MAX = 20;
+const LOC_NAME = 'Ashkelon';
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+let chart;
+
+// days[i] = { label, amWave, amWind, pmWave, pmWind, avgWave }
+let days = [];
+
+async function fetchData() {
+  const [wR, windR] = await Promise.all([
+    fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&hourly=wave_height&forecast_days=7&timezone=auto`),
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=wind_speed_10m&wind_speed_unit=kn&forecast_days=7&timezone=auto`)
+  ]);
+  const wJ = await wR.json();
+  const windJ = await windR.json();
+
+  const waveH = wJ.hourly.wave_height;
+  const windH = windJ.hourly.wind_speed_10m;
+  const times = wJ.hourly.time;
+
+  const result = [];
+  for (let d = 0; d < 7; d++) {
+    const amIdx = d * 24 + 8;
+    const pmIdx = d * 24 + 14;
+    const date = new Date(times[amIdx]);
+    const amWave = waveH[amIdx] ?? 0;
+    const pmWave = waveH[pmIdx] ?? 0;
+    result.push({
+      label: DAY_NAMES[date.getDay()],
+      amWave,
+      amWind: windH[amIdx] ?? 0,
+      pmWave,
+      pmWind: windH[pmIdx] ?? 0,
+      avgWave: (amWave + pmWave) / 2
+    });
+  }
+  return result;
+}
+
+function condition(wave) {
+  if (wave <= IDEAL_MAX)
+    return { label: 'Ideal', dot: '#00c853', icon: '✓', bg: '#00c853', msg: 'Flat water — ideal conditions. Perfect time to head out.' };
+  if (wave <= SAILING_MAX)
+    return { label: 'Sailing', dot: '#ffab00', icon: '~', bg: '#ffab00', msg: `${wave.toFixed(1)} m swell — fine for sailing, expect some chop.` };
+  return { label: 'Rough', dot: '#ef5350', icon: '!', bg: '#ef5350', msg: `${wave.toFixed(1)} m — too rough. Not a fun day on the water.` };
+}
+
+function setConditionUI(c) {
+  document.getElementById('condLabel').textContent = c.label;
+  document.getElementById('condDot').style.background = c.dot;
+  document.getElementById('msgIcon').textContent = c.icon;
+  document.getElementById('msgIcon').style.background = c.bg;
+  document.getElementById('msgText').textContent = c.msg;
+}
+
+function showNow(amWave, amWind) {
+  document.getElementById('view-now').style.display = 'flex';
+  document.getElementById('view-day').style.display = 'none';
+  document.getElementById('nowWave').innerHTML = `${amWave.toFixed(1)}<sup>m</sup>`;
+  document.getElementById('nowWind').innerHTML = `${Math.round(amWind)}<sup>kn</sup>`;
+  const n = new Date();
+  const ds = n.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const ts = n.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('dtLine').textContent = `${ds} · ${ts} · right now`;
+  setConditionUI(condition(amWave));
+}
+
+function showDay(day) {
+  document.getElementById('view-now').style.display = 'none';
+  document.getElementById('view-day').style.display = 'flex';
+  document.getElementById('amWave').innerHTML = `${day.amWave.toFixed(1)}<sup>m</sup>`;
+  document.getElementById('amWind').innerHTML = `${Math.round(day.amWind)}<sup>kn</sup>`;
+  document.getElementById('pmWave').innerHTML = `${day.pmWave.toFixed(1)}<sup>m</sup>`;
+  document.getElementById('pmWind').innerHTML = `${Math.round(day.pmWind)}<sup>kn</sup>`;
+  document.getElementById('dtLine').textContent = day.label;
+  setConditionUI(condition(day.avgWave));
+}
+
+function dotColor(avg) {
+  if (avg <= IDEAL_MAX)   return '#00c853'; // green  – ideal
+  if (avg <= SAILING_MAX) return '#ffab00'; // amber  – fine for sailing
+  return '#ef5350';                         // red    – not fun
+}
+
+function buildChart(data) {
+  const ctx = document.getElementById('waveChart').getContext('2d');
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.label),
+      datasets: [{
+        data: data.map(d => +d.avgWave.toFixed(2)),
+        borderColor: '#1565c0',
+        borderWidth: 2.5,
+        pointBackgroundColor: data.map(d => dotColor(d.avgWave)),
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 8,
+        pointHoverRadius: 10,
+        tension: 0.45,
+        fill: true,
+        backgroundColor(ctx) {
+          const { ctx: c, chartArea } = ctx.chart;
+          if (!chartArea) return 'rgba(21,101,192,0.2)';
+          const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0,   'rgba(21, 101, 192, 0.55)');
+          g.addColorStop(0.5, 'rgba(3,  169, 244, 0.22)');
+          g.addColorStop(1,   'rgba(179,229,252,  0.04)');
+          return g;
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 12 }, color: '#888' }
+        },
+        y: {
+          min: 0,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { font: { size: 11 }, color: '#888', callback: v => `${v}m` }
+        }
+      },
+      onClick(evt, elements) {
+        if (!elements.length) return;
+        const i = elements[0].index;
+        showDay(data[i]);
+        chart.data.datasets[0].pointBackgroundColor = data.map((d, j) =>
+          j === i ? '#ff5722' : dotColor(d.avgWave)
+        );
+        chart.update('none');
+      }
+    },
+    plugins: [
+      // Ocean foam line just above the data curve
+      {
+        id: 'waveFoam',
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(0);
+          const pts = meta.data;
+          if (pts.length < 2) return;
+          const { ctx } = chart;
+          ctx.save();
+          ctx.beginPath();
+          for (let i = 0; i < pts.length; i++) {
+            const { x, y } = pts[i].getProps(['x', 'y'], true);
+            if (i === 0) {
+              ctx.moveTo(x, y - 5);
+            } else {
+              const prev = pts[i - 1].getProps(['x', 'y'], true);
+              const cpx = (prev.x + x) / 2;
+              ctx.bezierCurveTo(cpx, prev.y - 5, cpx, y - 5, x, y - 5);
+            }
+          }
+          ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+      // Two threshold lines: green at 0.5m, red at 1.2m
+      {
+        id: 'thresholds',
+        afterDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          const lines = [
+            { val: IDEAL_MAX,   color: 'rgba(0,200,83,0.5)',   label: `${IDEAL_MAX}m` },
+            { val: SAILING_MAX, color: 'rgba(239,83,80,0.5)',  label: `${SAILING_MAX}m` }
+          ];
+          lines.forEach(({ val, color, label }) => {
+            const y = scales.y.getPixelForValue(val);
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(chartArea.left, y);
+            ctx.lineTo(chartArea.right, y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = color;
+            ctx.font = '11px -apple-system,sans-serif';
+            ctx.fillText(label, chartArea.left - 32, y + 4);
+            ctx.restore();
+          });
+        }
+      }
+    ]
+  });
+}
+
+async function init() {
+  document.getElementById('locName').textContent = LOC_NAME;
+  days = await fetchData();
+  showNow(days[0].amWave, days[0].amWind);
+  buildChart(days);
+}
+
+init();
+</script>
+</body>
+</html>
