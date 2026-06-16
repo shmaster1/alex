@@ -6,7 +6,7 @@ def notify(text):
     url = config.req_url
     payload = {
         "chat_id": config.chat_id,
-        "text": f"🌊 {text}"
+        "text": f"🌊 {text}\nWatch week forecast: https://alex-jet-chi.vercel.app"
     }
     try:
         response = requests.post(url, json=payload, timeout=10)
