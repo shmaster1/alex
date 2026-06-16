@@ -8,4 +8,9 @@ def notify(text):
         "chat_id": config.chat_id,
         "text": f"🌊 {text}"
     }
-    requests.post(url, json=payload)
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"WhatsApp notify failed: {e}")
+        raise

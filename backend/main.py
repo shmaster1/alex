@@ -1,6 +1,6 @@
-from config.config import config
-from providers.waves import fetch_conditions
-from notifiers.whatsapp import notify
+from backend.config import config
+from backend.providers.waves import fetch_conditions
+from backend.notifiers.whatsapp import notify
 
 
 def run() -> None:
