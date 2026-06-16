@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from providers.waves import fetch_conditions, fetch_forecast
+from backend.providers.waves import fetch_conditions, fetch_forecast
 
 app = FastAPI()
 
