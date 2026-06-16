@@ -1,5 +1,5 @@
 import requests
-from config.config import config
+from backend.config import config
 
 
 def notify(text):
