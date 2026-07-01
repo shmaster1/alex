@@ -5,10 +5,13 @@ from backend.notifiers.whatsapp import notify
 
 def run() -> None:
     day = fetch_day7()
+    print(f"Day 7: {day}")
+    print(f"Thresholds: wave<{config.wave_height_threshold}, wind {config.wind_min_speed_threshold}-{config.wind_max_speed_threshold}kn")
     am_good = (day['am_wave'] < config.wave_height_threshold and
                config.wind_min_speed_threshold <= day['am_wind'] <= config.wind_max_speed_threshold)
     pm_good = (day['pm_wave'] < config.wave_height_threshold and
                config.wind_min_speed_threshold <= day['pm_wind'] <= config.wind_max_speed_threshold)
+    print(f"AM good: {am_good}, PM good: {pm_good}")
 
     if am_good or pm_good:
         periods = []
