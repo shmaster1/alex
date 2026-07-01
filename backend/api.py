@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.providers.waves import fetch_conditions, fetch_forecast
@@ -21,4 +22,9 @@ def current():
 
 @app.get("/forecast")
 def forecast():
-    return {"days": fetch_forecast()}
+    try:
+        return {"days": fetch_forecast()}
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            raise HTTPException(status_code=503, detail="Rate limited by weather provider. Try again later.")
+        raise HTTPException(status_code=502, detail="Weather provider error.")
