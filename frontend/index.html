@@ -400,11 +400,29 @@ function buildChart(data) {
   });
 }
 
+function showError(msg) {
+  document.getElementById('locName').textContent = LOC_NAME;
+  document.getElementById('dtLine').textContent = '';
+  document.getElementById('condLabel').textContent = 'Unavailable';
+  document.getElementById('condDot').style.background = '#9e9e9e';
+  document.getElementById('msgIcon').textContent = '!';
+  document.getElementById('msgIcon').style.background = '#ef5350';
+  document.getElementById('msgText').textContent = msg;
+}
+
+let retryTimer = null;
+
 async function init() {
   document.getElementById('locName').textContent = LOC_NAME;
-  days = await fetchData();
-  showNow(days[0].amWave, days[0].amWind);
-  buildChart(days);
+  clearTimeout(retryTimer);
+  try {
+    days = await fetchData();
+    showNow(days[0].amWave, days[0].amWind);
+    buildChart(days);
+  } catch (err) {
+    showError('Unable to load weather data. Retrying in 30 seconds…');
+    retryTimer = setTimeout(init, 30000);
+  }
 }
 
 init();
