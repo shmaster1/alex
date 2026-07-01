@@ -38,7 +38,7 @@ def fetch_conditions() -> tuple[float, float]:
     return wave_height, wind_speed
 
 
-def fetch_forecast() -> list[dict]:
+def fetch_day7() -> dict:
     wave_response = httpx.get(
         MARINE_API_URL,
         params={"latitude": config.latitude, "longitude": config.longitude, "hourly": "wave_height", "forecast_days": 7, "timezone": "auto"},
@@ -57,18 +57,14 @@ def fetch_forecast() -> list[dict]:
     wind_h = wind_response.json()["hourly"]["wind_speed_10m"]
     times  = wave_response.json()["hourly"]["time"]
 
-    days = []
-    for d in range(7):
-        am, pm = d * 24 + 8, d * 24 + 14
-        date = datetime.fromisoformat(times[am])
-        am_wave = wave_h[am] or 0.0
-        pm_wave = wave_h[pm] or 0.0
-        days.append({
-            "label":    DAY_NAMES[date.isoweekday() % 7],
-            "am_wave":  round(am_wave, 2),
-            "am_wind":  round(wind_h[am] or 0.0, 1),
-            "pm_wave":  round(pm_wave, 2),
-            "pm_wind":  round(wind_h[pm] or 0.0, 1),
-            "avg_wave": round((am_wave + pm_wave) / 2, 2),
-        })
-    return days
+    am, pm = 6 * 24 + 8, 6 * 24 + 14  # day 7 (index 6), 8am and 2pm
+    date = datetime.fromisoformat(times[am])
+
+    return {
+        "label":   DAY_NAMES[date.isoweekday() % 7],
+        "date":    date.strftime("%d %b"),
+        "am_wave": round(wave_h[am] or 0.0, 2),
+        "am_wind": round(wind_h[am] or 0.0, 1),
+        "pm_wave": round(wave_h[pm] or 0.0, 2),
+        "pm_wind": round(wind_h[pm] or 0.0, 1),
+    }
